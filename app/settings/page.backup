@@ -1,0 +1,770 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
+import {
+  AudioLines,
+  Check,
+  ChevronDown,
+  Clock,
+  Database,
+  Download,
+  Grid2X2,
+  HardDrive,
+  Info,
+  Keyboard,
+  Library,
+  LogOut,
+  MonitorCog,
+  Music2,
+  Palette,
+  Plus,
+  Search,
+  Server,
+  Sparkles,
+  Trash2,
+  Users,
+  Wifi,
+} from "lucide-react";
+import {
+  ACCENT_STORAGE_KEY,
+  applyAppearance,
+  getSavedAppearance,
+  THEME_STORAGE_KEY,
+  accentOptions,
+  themeGroups,
+} from "@/components/AppearanceProvider";
+import type { AccentOption, ThemeOption } from "@/components/AppearanceProvider";
+
+type TabId =
+  | "servers"
+  | "library"
+  | "audio"
+  | "lyrics"
+  | "appearance"
+  | "personalisation"
+  | "integrations"
+  | "input"
+  | "storage"
+  | "system"
+  | "users";
+
+const tabs: Array<{ id: TabId; label: string; icon: ReactNode }> = [
+  { id: "servers", label: "Servers", icon: <Server size={15} /> },
+  { id: "library", label: "Library", icon: <Library size={15} /> },
+  { id: "audio", label: "Audio", icon: <AudioLines size={15} /> },
+  { id: "lyrics", label: "Lyrics", icon: <Music2 size={15} /> },
+  { id: "appearance", label: "Appearance", icon: <Palette size={15} /> },
+  { id: "personalisation", label: "Personalisation", icon: <Grid2X2 size={15} /> },
+  { id: "integrations", label: "Integrations", icon: <Sparkles size={15} /> },
+  { id: "input", label: "Input", icon: <Keyboard size={15} /> },
+  { id: "storage", label: "Storage", icon: <HardDrive size={15} /> },
+  { id: "system", label: "System", icon: <MonitorCog size={15} /> },
+  { id: "users", label: "Users", icon: <Users size={15} /> },
+];
+
+const ACCENT_VERSION_KEY = "navidrome-accent-v2";
+
+const settingsIndex: Array<{ tab: TabId; title: string; keywords: string }> = [
+  { tab: "servers", title: "Navidrome Server", keywords: "connection host localhost login audiomuse" },
+  { tab: "library", title: "Library Refresh", keywords: "scan metadata musicbrainz albums sorting release sections" },
+  { tab: "audio", title: "Playback Engine", keywords: "crossfade replaygain gapless bitrate device output hot cache" },
+  { tab: "lyrics", title: "Lyrics", keywords: "synced fullscreen lrclib provider" },
+  { tab: "appearance", title: "Theme", keywords: "appearance colors palette scheduler visual options" },
+  { tab: "personalisation", title: "Personalisation", keywords: "home page now playing similar artists tour dates" },
+  { tab: "integrations", title: "Integrations", keywords: "lastfm ticketmaster bandsintown navidrome scrobbling" },
+  { tab: "input", title: "Keyboard Input", keywords: "shortcuts media keys spacebar global" },
+  { tab: "storage", title: "Storage & Cache", keywords: "offline image cache album art downloads clear" },
+  { tab: "system", title: "System", keywords: "version diagnostics reset logging danger" },
+  { tab: "users", title: "Users", keywords: "admin multi user sessions orbit" },
+];
+
+export default function SettingsPage() {
+  const [activeTab, setActiveTab] = useState<TabId>("servers");
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const activeTabLabel = tabs.find((tab) => tab.id === activeTab)?.label || "Settings";
+  const searchResults = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return [];
+
+    return settingsIndex
+      .map((item) => {
+        const haystack = `${item.title} ${item.keywords}`.toLowerCase();
+        const score = haystack.includes(query) ? 2 : query.split(/\s+/).filter((part) => haystack.includes(part)).length;
+        return { ...item, score };
+      })
+      .filter((item) => item.score > 0)
+      .sort((a, b) => b.score - a.score);
+  }, [searchQuery]);
+
+  return (
+    <main className="min-h-screen bg-[var(--app-bg)] px-6 py-5 pb-32 text-white transition-colors">
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-black tracking-tight text-white/90">Settings</h1>
+          <p className="mt-1 text-sm font-semibold text-[var(--app-muted)]">
+            Tune the app, server, playback, and visual behavior.
+          </p>
+        </div>
+
+        <div className="relative w-full max-w-sm">
+          <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--app-muted)]" />
+          <input
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder="Search settings..."
+            className="h-10 w-full rounded-xl border border-[var(--app-border)] bg-[var(--app-shell)] pl-9 pr-3 text-sm font-bold text-white/80 outline-none transition focus:border-[var(--app-accent)]"
+          />
+        </div>
+      </div>
+
+      <nav className="mb-6 flex gap-1 overflow-x-auto rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel)] p-1">
+        {tabs.map((tab) => {
+          const active = activeTab === tab.id;
+
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => {
+                setActiveTab(tab.id);
+                setSearchQuery("");
+              }}
+              className={[
+                "flex shrink-0 items-center gap-2 rounded-xl px-4 py-2 text-sm font-black transition",
+                active
+                  ? "bg-[var(--app-accent-soft)] text-[var(--app-accent)]"
+                  : "text-[var(--app-muted)] hover:bg-white/5 hover:text-white/80",
+              ].join(" ")}
+            >
+              {tab.icon}
+              {tab.label}
+            </button>
+          );
+        })}
+      </nav>
+
+      {searchQuery.trim() ? (
+        <SearchResults results={searchResults} onSelect={setActiveTab} />
+      ) : (
+        <section>
+          <div className="mb-4 flex items-center gap-2">
+            <span className="text-[var(--app-accent)]">
+              {tabs.find((tab) => tab.id === activeTab)?.icon}
+            </span>
+            <h2 className="text-lg font-black">{activeTabLabel}</h2>
+          </div>
+
+          {activeTab === "servers" && <ServersPanel />}
+          {activeTab === "library" && <LibraryPanel />}
+          {activeTab === "audio" && <AudioPanel />}
+          {activeTab === "lyrics" && <LyricsPanel />}
+          {activeTab === "appearance" && <AppearancePanel />}
+          {activeTab === "personalisation" && <PersonalisationPanel />}
+          {activeTab === "integrations" && <IntegrationsPanel />}
+          {activeTab === "input" && <InputPanel />}
+          {activeTab === "storage" && <StoragePanel />}
+          {activeTab === "system" && <SystemPanel />}
+          {activeTab === "users" && <UsersPanel />}
+        </section>
+      )}
+    </main>
+  );
+}
+
+function SearchResults({
+  results,
+  onSelect,
+}: {
+  results: Array<{ tab: TabId; title: string; keywords: string; score: number }>;
+  onSelect: (tab: TabId) => void;
+}) {
+  if (!results.length) {
+    return (
+      <SettingsCard>
+        <p className="text-sm font-bold text-[var(--app-muted)]">No settings matched your search.</p>
+      </SettingsCard>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {results.map((result) => (
+        <button
+          key={`${result.tab}-${result.title}`}
+          type="button"
+          onClick={() => onSelect(result.tab)}
+          className="flex w-full items-center justify-between rounded-2xl border border-[var(--app-border)] bg-[var(--app-shell)] p-4 text-left transition hover:border-[var(--app-accent)]"
+        >
+          <div>
+            <div className="font-black text-white/90">{result.title}</div>
+            <div className="mt-1 text-sm font-semibold text-[var(--app-muted)]">
+              {tabs.find((tab) => tab.id === result.tab)?.label}
+            </div>
+          </div>
+          <ChevronDown size={17} className="-rotate-90 text-[var(--app-muted)]" />
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function ServersPanel() {
+  return (
+    <PanelStack>
+      <SubSection title="Server Profiles" icon={<Server size={16} />} defaultOpen>
+        <SettingsCard highlight>
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="flex gap-4">
+              <div className="mt-1 cursor-grab text-[var(--app-muted)]">::</div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-black">Navidrome</h3>
+                  <Badge>Active</Badge>
+                </div>
+                <div className="mt-1 text-sm font-semibold text-[var(--app-muted)]">localhost:4533</div>
+                <div className="mt-1 text-sm font-semibold text-[var(--app-muted)]">admin</div>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <ActionButton icon={<Wifi size={15} />}>Test Connection</ActionButton>
+              <Trash2 size={17} className="text-rose-400" />
+            </div>
+          </div>
+        </SettingsCard>
+      </SubSection>
+
+      <SubSection title="Smart Server Features" icon={<Sparkles size={16} />}>
+        <SettingsCard>
+          <ToggleRow
+            title="AudioMuse-AI (Navidrome)"
+            description="Enables Instant Mix from tracks and server-side similar artists when configured."
+            control={<Toggle defaultOn />}
+          />
+        </SettingsCard>
+      </SubSection>
+
+      <div className="flex flex-wrap gap-3">
+        <ActionButton icon={<Plus size={16} />}>Add Server</ActionButton>
+        <ActionButton variant="danger" icon={<LogOut size={16} />}>Logout</ActionButton>
+      </div>
+    </PanelStack>
+  );
+}
+
+function LibraryPanel() {
+  return (
+    <PanelStack>
+      <SubSection title="Library Refresh" icon={<Library size={16} />} defaultOpen>
+        <SettingsCard>
+          <ToggleRow title="Scan interval" description="How often the app refreshes library data." control={<Select options={["Manual", "Every 15 minutes", "Hourly", "Daily"]} />} />
+          <Divider />
+          <ToggleRow title="Show release sections" description="Group albums into studio, live, EPs, singles and compilations." control={<Toggle defaultOn />} />
+          <Divider />
+          <ToggleRow title="Prefer MusicBrainz metadata" description="Use release type tags when available." control={<Toggle defaultOn />} />
+        </SettingsCard>
+      </SubSection>
+
+      <SubSection title="Browse Defaults" icon={<Grid2X2 size={16} />}>
+        <SettingsCard>
+          <ToggleRow title="Album sort default" description="Default album order on artist pages." control={<Select options={["Oldest first", "Newest first", "Alphabetical"]} />} />
+          <Divider />
+          <ToggleRow title="Grid density" description="Default album grid spacing." control={<Select options={["Comfortable", "Compact", "Dense"]} />} />
+        </SettingsCard>
+      </SubSection>
+    </PanelStack>
+  );
+}
+
+function AudioPanel() {
+  return (
+    <PanelStack>
+      <SubSection title="Playback Engine" icon={<AudioLines size={16} />} defaultOpen>
+        <SettingsCard>
+          <ToggleRow title="Crossfade" description="Blend tracks together during playback." control={<Toggle />} />
+          <Divider />
+          <ToggleRow title="ReplayGain" description="Normalize playback volume when metadata exists." control={<Toggle defaultOn />} />
+          <Divider />
+          <ToggleRow title="Gapless playback" description="Reduce silence between consecutive tracks." control={<Toggle defaultOn />} />
+          <Divider />
+          <ToggleRow title="Audio quality badges" description="Show codec, bitrate and sample rate on Now Playing." control={<Toggle defaultOn />} />
+        </SettingsCard>
+      </SubSection>
+
+      <SubSection title="Output & Cache" icon={<Database size={16} />}>
+        <SettingsCard>
+          <ToggleRow title="Output device" description="Use the system default audio output." control={<Select options={["System Default", "Built-in Output"]} />} />
+          <Divider />
+          <ToggleRow title="Hot cache" description="Pre-cache nearby tracks for smoother playback." control={<Toggle />} />
+        </SettingsCard>
+      </SubSection>
+    </PanelStack>
+  );
+}
+
+function LyricsPanel() {
+  return (
+    <PanelStack>
+      <SubSection title="Lyrics Display" icon={<Music2 size={16} />} defaultOpen>
+        <SettingsCard>
+          <ToggleRow title="Synced lyrics" description="Show time-synced lyrics when available." control={<Toggle defaultOn />} />
+          <Divider />
+          <ToggleRow title="Fullscreen lyrics" description="Use larger animated lyrics in fullscreen mode." control={<Toggle />} />
+          <Divider />
+          <ToggleRow title="Lyrics provider" description="Choose preferred lyrics source." control={<Select options={["Navidrome", "LRCLIB", "Auto"]} />} />
+        </SettingsCard>
+      </SubSection>
+    </PanelStack>
+  );
+}
+
+function AppearancePanel() {
+  const [theme, setTheme] = useState<ThemeOption>("psysonic-dark");
+  const [accent, setAccent] = useState<AccentOption>("Theme");
+
+  useEffect(() => {
+    const saved = getSavedAppearance();
+    setTheme(saved.theme);
+    setAccent(saved.accent);
+  }, []);
+
+  function updateTheme(nextTheme: string) {
+    const value = nextTheme as ThemeOption;
+    setTheme(value);
+    window.localStorage.setItem(THEME_STORAGE_KEY, value);
+    applyAppearance(value, accent);
+  }
+
+  function updateAccent(nextAccent: string) {
+    const value = nextAccent as AccentOption;
+    setAccent(value);
+    window.localStorage.setItem(ACCENT_STORAGE_KEY, value);
+    window.localStorage.setItem(ACCENT_VERSION_KEY, "1");
+    applyAppearance(theme, value);
+  }
+
+  return (
+    <PanelStack>
+      <SubSection title="Theme" icon={<Palette size={16} />} defaultOpen>
+        <SettingsCard>
+          <ThemePicker value={theme} onChange={updateTheme} />
+        </SettingsCard>
+      </SubSection>
+
+      <SubSection title="Theme Scheduler" icon={<Clock size={16} />}>
+        <SettingsCard>
+          <ToggleRow title="Enable theme scheduler" description="Automatically switch between two themes based on time of day." control={<Toggle />} />
+          <Divider />
+          <div className="grid gap-3 md:grid-cols-2">
+            <Field label="Day theme"><Select options={themeGroups.flatMap((group) => group.themes.map((item) => item.label))} /></Field>
+            <Field label="Day starts"><Select options={["06:00", "07:00", "08:00", "09:00"]} /></Field>
+            <Field label="Night theme"><Select options={themeGroups.flatMap((group) => group.themes.map((item) => item.label))} /></Field>
+            <Field label="Night starts"><Select options={["18:00", "19:00", "20:00", "21:00"]} /></Field>
+          </div>
+        </SettingsCard>
+      </SubSection>
+
+      <SubSection title="Visual Options" icon={<Palette size={16} />}>
+        <SettingsCard>
+          <ToggleRow title="Accent color" description="Used for active states and highlights." control={<Select options={[...accentOptions]} value={accent} onChange={updateAccent} />} />
+          <Divider />
+          <ToggleRow title="Cover art background" description="Use current cover art as a soft page backdrop where available." control={<Toggle defaultOn />} />
+          <Divider />
+          <ToggleRow title="Compact layout" description="Reduce spacing across pages." control={<Toggle defaultOn />} />
+          <Divider />
+          <ToggleRow title="Glass effects" description="Use blur and translucent surfaces." control={<Toggle defaultOn />} />
+        </SettingsCard>
+      </SubSection>
+    </PanelStack>
+  );
+}
+
+function PersonalisationPanel() {
+  return (
+    <PanelStack>
+      <SubSection title="Navigation" icon={<Grid2X2 size={16} />} defaultOpen>
+        <SettingsCard>
+          <ToggleRow title="Home page" description="Choose the default landing page." control={<Select options={["Library", "Now Playing", "Albums", "Artists"]} />} />
+          <Divider />
+          <ToggleRow title="Auto-open Now Playing" description="Navigate to Now Playing when a song starts." control={<Toggle defaultOn />} />
+        </SettingsCard>
+      </SubSection>
+
+      <SubSection title="Context Panels" icon={<Info size={16} />}>
+        <SettingsCard>
+          <ToggleRow title="Show similar artists" description="Use similar artist chips on detail pages." control={<Toggle defaultOn />} />
+          <Divider />
+          <ToggleRow title="Show tour dates" description="Display tour data on Now Playing." control={<Toggle defaultOn />} />
+        </SettingsCard>
+      </SubSection>
+    </PanelStack>
+  );
+}
+
+function IntegrationsPanel() {
+  return (
+    <PanelStack>
+      <SubSection title="Connected Services" icon={<Sparkles size={16} />} defaultOpen>
+        <SettingsCard>
+          <ToggleRow title="Last.fm" description="Artist stats, track stats, bios and similar artists." control={<Badge>Configured</Badge>} />
+          <Divider />
+          <ToggleRow title="Bandsintown" description="Tour data provider for Now Playing." control={<Badge>Connected</Badge>} />
+          <Divider />
+          <ToggleRow title="Navidrome scrobbling" description="Submit plays back to Navidrome." control={<Toggle defaultOn />} />
+        </SettingsCard>
+      </SubSection>
+    </PanelStack>
+  );
+}
+
+function InputPanel() {
+  return (
+    <PanelStack>
+      <SubSection title="Keyboard Shortcuts" icon={<Keyboard size={16} />} defaultOpen>
+        <SettingsCard>
+          <ToggleRow title="Spacebar" description="Play / pause current track." control={<Badge>Enabled</Badge>} />
+          <Divider />
+          <ToggleRow title="Arrow keys" description="Seek or navigate lists." control={<Badge>Enabled</Badge>} />
+          <Divider />
+          <ToggleRow title="Media keys" description="Use keyboard media buttons." control={<Toggle defaultOn />} />
+          <Divider />
+          <ToggleRow title="Global shortcuts" description="Enable shortcuts while app is backgrounded." control={<Toggle />} />
+        </SettingsCard>
+      </SubSection>
+    </PanelStack>
+  );
+}
+
+function StoragePanel() {
+  return (
+    <PanelStack>
+      <SubSection title="Cache" icon={<HardDrive size={16} />} defaultOpen>
+        <SettingsCard>
+          <ToggleRow title="Cache album art" description="Store album covers locally for faster browsing." control={<Toggle defaultOn />} />
+          <Divider />
+          <ToggleRow title="Cache size" description="Maximum storage used for local cache." control={<Select options={["500 MB", "1 GB", "5 GB", "Unlimited"]} />} />
+          <Divider />
+          <ToggleRow title="Offline songs" description="Download tracks for offline playback." control={<Badge muted>Coming soon</Badge>} />
+          <Divider />
+          <ToggleRow title="Clear cache" description="Remove cached images and metadata." control={<ActionButton>Clear</ActionButton>} />
+        </SettingsCard>
+      </SubSection>
+    </PanelStack>
+  );
+}
+
+function SystemPanel() {
+  return (
+    <PanelStack>
+      <SubSection title="Diagnostics" icon={<MonitorCog size={16} />} defaultOpen>
+        <SettingsCard>
+          <ToggleRow title="Version" description="navidrome-client local build." control={<Badge>0.1.0</Badge>} />
+          <Divider />
+          <ToggleRow title="Diagnostics" description="Show debug information in the console." control={<Toggle />} />
+          <Divider />
+          <ToggleRow title="Export logs" description="Create a local diagnostic log bundle." control={<ActionButton>Export</ActionButton>} />
+        </SettingsCard>
+      </SubSection>
+
+      <SubSection title="Reset" icon={<Trash2 size={16} />}>
+        <SettingsCard>
+          <ToggleRow title="Reset layout" description="Restore all page layouts to defaults." control={<ActionButton>Reset</ActionButton>} />
+          <Divider />
+          <ToggleRow title="Danger zone" description="Clear app settings from this browser." control={<ActionButton variant="danger">Clear</ActionButton>} />
+        </SettingsCard>
+      </SubSection>
+    </PanelStack>
+  );
+}
+
+function UsersPanel() {
+  return (
+    <PanelStack>
+      <SubSection title="Accounts" icon={<Users size={16} />} defaultOpen>
+        <SettingsCard>
+          <ToggleRow title="Current user" description="admin" control={<Badge>Active</Badge>} />
+          <Divider />
+          <ToggleRow title="Multi-user mode" description="Switch between saved Navidrome users." control={<Toggle />} />
+          <Divider />
+          <ToggleRow title="Listening sessions" description="Shared listening rooms similar to Orbit." control={<Badge muted>Coming soon</Badge>} />
+        </SettingsCard>
+      </SubSection>
+    </PanelStack>
+  );
+}
+
+function PanelStack({ children }: { children: ReactNode }) {
+  return <div className="space-y-4">{children}</div>;
+}
+
+function SubSection({
+  title,
+  icon,
+  children,
+  defaultOpen = false,
+}: {
+  title: string;
+  icon: ReactNode;
+  children: ReactNode;
+  defaultOpen?: boolean;
+}) {
+  return (
+    <details
+      open={defaultOpen}
+      className="group overflow-hidden rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel)]"
+    >
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-4 py-3 text-sm font-black text-white/85">
+        <span className="flex items-center gap-2">
+          <span className="text-[var(--app-accent)]">{icon}</span>
+          {title}
+        </span>
+        <ChevronDown size={16} className="text-[var(--app-muted)] transition group-open:rotate-180" />
+      </summary>
+      <div className="border-t border-[var(--app-border)] bg-[var(--app-bg)] p-4">
+        {children}
+      </div>
+    </details>
+  );
+}
+
+function SettingsCard({
+  children,
+  highlight = false,
+}: {
+  children: ReactNode;
+  highlight?: boolean;
+}) {
+  return (
+    <div
+      className={[
+        "rounded-2xl border bg-[var(--app-shell)] p-4 shadow-xl shadow-black/10 transition-colors",
+        highlight ? "border-[var(--app-accent)]" : "border-[var(--app-border)]",
+      ].join(" ")}
+    >
+      {children}
+    </div>
+  );
+}
+
+function ToggleRow({
+  title,
+  description,
+  control,
+}: {
+  title: string;
+  description: string;
+  control: ReactNode;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-5 py-1">
+      <div className="min-w-0">
+        <h3 className="font-black text-white/85">{title}</h3>
+        <p className="mt-1 text-sm font-semibold text-[var(--app-muted)]">{description}</p>
+      </div>
+      <div className="shrink-0">{control}</div>
+    </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <label className="block">
+      <div className="mb-2 text-xs font-black uppercase tracking-[0.16em] text-[var(--app-muted)]">
+        {label}
+      </div>
+      {children}
+    </label>
+  );
+}
+
+function Divider() {
+  return <div className="my-3 h-px bg-[var(--app-border)]" />;
+}
+
+function Toggle({ defaultOn = false }: { defaultOn?: boolean }) {
+  const [on, setOn] = useState(defaultOn);
+
+  return (
+    <button
+      type="button"
+      onClick={() => setOn((value) => !value)}
+      className={[
+        "relative h-7 w-12 rounded-full transition",
+        on ? "bg-[var(--app-accent-strong)]" : "bg-white/15",
+      ].join(" ")}
+      aria-pressed={on}
+    >
+      <span
+        className={[
+          "absolute top-1 h-5 w-5 rounded-full bg-white transition",
+          on ? "left-6" : "left-1",
+        ].join(" ")}
+      />
+    </button>
+  );
+}
+
+function Select({
+  options,
+  value,
+  onChange,
+}: {
+  options: string[];
+  value?: string;
+  onChange?: (value: string) => void;
+}) {
+  return (
+    <select
+      value={value}
+      onChange={(event) => onChange?.(event.target.value)}
+      className="max-w-56 rounded-xl border border-[var(--app-border)] bg-[var(--app-bg)] px-3 py-2 text-sm font-bold text-white/75 outline-none"
+    >
+      {options.map((option) => (
+        <option key={option}>{option}</option>
+      ))}
+    </select>
+  );
+}
+
+function ThemePicker({
+  value,
+  onChange,
+}: {
+  value: ThemeOption;
+  onChange: (value: string) => void;
+}) {
+  const activeGroup =
+    themeGroups.find((group) => group.themes.some((theme) => theme.id === value))
+      ?.group || themeGroups[0].group;
+  const [openGroup, setOpenGroup] = useState<string | null>(activeGroup);
+
+  return (
+    <div className="overflow-hidden rounded-xl border border-[var(--app-border)]">
+      {themeGroups.map((group) => {
+        const isOpen = openGroup === group.group;
+        const hasActive = group.themes.some((theme) => theme.id === value);
+
+        return (
+          <div key={group.group} className="border-b border-[var(--app-border)] last:border-b-0">
+            <button
+              type="button"
+              onClick={() => setOpenGroup(isOpen ? null : group.group)}
+              className={[
+                "flex w-full items-center justify-between gap-4 px-4 py-3 text-left text-xs font-black uppercase tracking-[0.16em] transition",
+                isOpen
+                  ? "bg-[var(--app-panel-strong)] text-[var(--app-accent)]"
+                  : "bg-[var(--app-panel)] text-[var(--app-muted)] hover:bg-[var(--app-panel-strong)]",
+              ].join(" ")}
+            >
+              <span className="flex items-center gap-2">
+                {group.group}
+                {hasActive && !isOpen && (
+                  <span className="h-1.5 w-1.5 rounded-full bg-[var(--app-accent)]" />
+                )}
+              </span>
+              <ChevronDown
+                size={15}
+                className={isOpen ? "rotate-180 transition" : "transition"}
+              />
+            </button>
+
+            {isOpen && (
+              <div className="border-t border-[var(--app-border)] bg-[var(--app-bg)] p-4">
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+                  {group.themes.map((theme) => {
+                    const active = theme.id === value;
+
+                    return (
+                      <button
+                        key={theme.id}
+                        type="button"
+                        onClick={() => onChange(theme.id)}
+                        className="group min-w-0 text-left"
+                      >
+                        <div
+                          className={[
+                            "relative h-16 overflow-hidden rounded-lg outline outline-2 outline-offset-2 transition group-hover:scale-[1.03]",
+                            active
+                              ? "outline-[var(--app-accent)] shadow-[0_0_16px_var(--app-accent-soft)]"
+                              : "outline-transparent group-hover:outline-[var(--app-accent)]",
+                          ].join(" ")}
+                        >
+                          <div style={{ background: theme.bg, height: "54%" }} />
+                          <div style={{ background: theme.card, height: "22%" }} />
+                          <div style={{ background: theme.accent, height: "24%" }} />
+                          {active && (
+                            <span
+                              className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full border border-white/70"
+                              style={{ background: theme.accent }}
+                            >
+                              <Check size={12} strokeWidth={3} className="text-white" />
+                            </span>
+                          )}
+                        </div>
+                        <div
+                          className={[
+                            "mt-2 truncate text-center text-xs font-bold transition",
+                            active
+                              ? "text-white"
+                              : "text-[var(--app-muted)] group-hover:text-white",
+                          ].join(" ")}
+                        >
+                          {theme.label}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function Badge({
+  children,
+  muted = false,
+}: {
+  children: ReactNode;
+  muted?: boolean;
+}) {
+  return (
+    <span
+      className={[
+        "rounded-full px-3 py-1 text-xs font-black",
+        muted ? "bg-white/10 text-[var(--app-muted)]" : "bg-[var(--app-accent-soft)] text-[var(--app-accent)]",
+      ].join(" ")}
+    >
+      {children}
+    </span>
+  );
+}
+
+function ActionButton({
+  children,
+  icon,
+  variant = "default",
+}: {
+  children: ReactNode;
+  icon?: ReactNode;
+  variant?: "default" | "danger";
+}) {
+  return (
+    <button
+      type="button"
+      className={[
+        "flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-black transition",
+        variant === "danger"
+          ? "border-rose-400/60 text-rose-300 hover:bg-rose-400/10"
+          : "border-[var(--app-border)] bg-white/5 text-white/75 hover:bg-white/10",
+      ].join(" ")}
+    >
+      {icon}
+      {children}
+    </button>
+  );
+}
