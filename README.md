@@ -101,7 +101,11 @@ Create a `.env.local` file:
 NAVIDROME_URL=http://localhost:4533
 NAVIDROME_USERNAME=your_username
 NAVIDROME_PASSWORD=your_password
+LASTFM_API_KEY=your_api_key
+LASTFM_API_SECRET=your_api_secret
 ```
+
+> ⚠️ Never commit `.env.local` — it should remain local only.
 
 ### Run in development
 
