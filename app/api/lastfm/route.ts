@@ -6,7 +6,7 @@ const API_KEY =
   process.env.NEXT_PUBLIC_LASTFM_API_KEY ||
   "9917fb39049225a13bec225ad6d49054";
 const API_SECRET =
-  process.env.LASTFM_API_SECRET || "03817dda02bee87a178aab7581abae3b";
+  process.env.LASTFM_API_SECRET || "";
 const LASTFM_URL = "https://ws.audioscrobbler.com/2.0/";
 
 function sign(params: Record<string, string>) {
